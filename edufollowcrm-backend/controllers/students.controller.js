@@ -269,4 +269,71 @@ async function getWaLogs(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { list, getOne, create, update, remove, getFollowups, getPayments, getAttendance, getWaLogs };
+// ── PATCH /api/students/bulk-assign ──────────────────
+async function bulkAssign(req, res, next) {
+  try {
+    const { student_ids, counselor_id } = req.body;
+
+    const counselor = await queryOne(
+      "SELECT id, name FROM users WHERE id = $1 AND is_active = TRUE",
+      [counselor_id]
+    );
+    if (!counselor) return R.notFound(res, "Counselor not found");
+
+    const result = await query(
+      "UPDATE students SET counselor_id = $1 WHERE id = ANY($2::uuid[])",
+      [counselor_id, student_ids]
+    );
+
+    return R.success(
+      res,
+      { count: result.rowCount, counselor_name: counselor.name },
+      `${result.rowCount} student(s) assigned to ${counselor.name}`
+    );
+  } catch (err) { next(err); }
+}
+
+// GET /api/students/export?format=csv|pdf&search=&status=&course_id=&fees_status=
+async function exportStudents(req, res, next) {
+  try {
+    const { format = "csv", search = "", status, course_id, fees_status } = req.query;
+    const conditions = [];
+    const params = [];
+    let pi = 1;
+    if (search)      { conditions.push(`(s.full_name ILIKE $${pi} OR s.mobile ILIKE $${pi} OR s.student_code ILIKE $${pi})`); params.push(`%${search}%`); pi++; }
+    if (status)      { conditions.push(`s.status = $${pi++}`);    params.push(status); }
+    if (course_id)   { conditions.push(`s.course_id = $${pi++}`); params.push(course_id); }
+    if (fees_status) { conditions.push(`f.status = $${pi++}`);    params.push(fees_status); }
+    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+
+    const rows = await queryAll(
+      `SELECT s.*, c.name AS course_name, u.name AS counselor_name,
+              f.total_fees, f.paid, f.discount, f.due_date, f.status AS fees_status
+       FROM students s
+       LEFT JOIN courses c ON c.id = s.course_id
+       LEFT JOIN users   u ON u.id = s.counselor_id
+       LEFT JOIN fees    f ON f.student_id = s.id
+       ${where}
+       ORDER BY s.full_name ASC
+       LIMIT 5000`,
+      params
+    );
+
+    const date = new Date().toISOString().split("T")[0];
+    const { studentsToCSV, studentsToPDF } = require("../services/export.service");
+
+    if (format === "pdf") {
+      const buf = await studentsToPDF(rows);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="students-${date}.pdf"`);
+      return res.send(buf);
+    }
+
+    const csv = studentsToCSV(rows);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="students-${date}.csv"`);
+    return res.send(csv);
+  } catch (err) { next(err); }
+}
+
+module.exports = { list, getOne, create, update, remove, bulkAssign, exportStudents, getFollowups, getPayments, getAttendance, getWaLogs };

@@ -14,6 +14,14 @@ const feesApi = {
   addPayment: (data) =>
     api.post("/fees/payment", data),
 
+  // POST /api/fees/bulk-payment
+  bulkPayment: (data) =>
+    api.post("/fees/bulk-payment", data),
+
+  // GET /api/fees/export?format=csv|pdf&...filters
+  export: (params = {}) =>
+    api.get("/fees/export", { params, responseType: "blob" }),
+
   // GET /api/fees/payment/:id/receipt  (returns PDF blob)
   downloadReceipt: (paymentId) =>
     api.get(`/fees/payment/${paymentId}/receipt`, { responseType: "blob" }),

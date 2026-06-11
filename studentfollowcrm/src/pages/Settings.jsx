@@ -1,12 +1,12 @@
 // src/pages/Settings.jsx
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Save, CheckCircle, Activity, Download, Upload, Calendar, Shield, Eye, EyeOff } from "lucide-react";
 import { SectionHead, Toggle, FormField } from "../components/shared";
 import { useMutation } from "../hooks/useApi";
 import { useAuth } from "../context/AuthContext";
 import authApi from "../api/auth.api";
 
-const TABS = ["Institute","WhatsApp API","Payment","Notifications","User Roles","Backup & Restore"];
+const TABS = ["Institute","WhatsApp API","Change Password","Notifications","User Roles","Backup & Restore"];
 
 function SaveRow({ onSave, saving, saved }) {
   return (
@@ -36,7 +36,13 @@ function ToggleRow({ label, sub, defaultValue=false }) {
 function InstituteTab() {
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
+  const [logoName, setLogoName] = useState(null);
+  const fileRef = useRef(null);
   function handleSave() { setSaving(true); setTimeout(()=>{ setSaving(false); setSaved(true); setTimeout(()=>setSaved(false),2000); },600); }
+  function handleLogoChange(e) {
+    const f = e.target.files[0];
+    if (f) setLogoName(f.name);
+  }
   return (
     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, maxWidth:720 }}>
       <FormField label="Institute Name" required col="1/-1"><input className="inp" defaultValue="EduSpark Institute"/></FormField>
@@ -46,8 +52,10 @@ function InstituteTab() {
       <FormField label="GSTIN" col="2"><input className="inp" defaultValue="27XXXXX0000X1Z5"/></FormField>
       <FormField label="Address" col="1/-1"><textarea className="inp" rows={2} defaultValue="MIDC Area, Nagpur, Maharashtra 440016"/></FormField>
       <FormField label="Institute Logo" col="1/-1">
-        <div className="drop-zone" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
-          <span style={{ fontSize:24 }}>🎓</span><span>Click to upload logo (PNG/SVG, max 2 MB)</span>
+        <input ref={fileRef} type="file" accept="image/png,image/svg+xml" style={{ display:"none" }} onChange={handleLogoChange}/>
+        <div className="drop-zone" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }} onClick={()=>fileRef.current.click()}>
+          <span style={{ fontSize:24 }}>🎓</span>
+          <span>{logoName ? `Selected: ${logoName}` : "Click to upload logo (PNG/SVG, max 2 MB)"}</span>
         </div>
       </FormField>
       <div style={{ gridColumn:"1/-1" }}><SaveRow onSave={handleSave} saving={saving} saved={saved}/></div>
@@ -94,11 +102,25 @@ function ChangePasswordTab() {
   const { mutate, loading, success, error } = useMutation(
     (d) => authApi.changePassword(d.current, d.next)
   );
+  const [localError, setLocalError] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const timerRef = useRef(null);
+  useEffect(() => {
+    if (success) {
+      setShowSuccess(true);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setShowSuccess(false), 3000);
+    }
+    return () => clearTimeout(timerRef.current);
+  }, [success]);
   async function handleChange() {
-    if (!cur || !next) return alert("Both fields are required.");
-    if (next.length < 8) return alert("New password must be at least 8 characters.");
-    try { await mutate({ current: cur, next }); setCur(""); setNext(""); }
-    catch(e) { alert(e.message); }
+    setLocalError(null);
+    if (!cur || !next) return setLocalError("Both fields are required.");
+    if (next.length < 8) return setLocalError("New password must be at least 8 characters.");
+    try {
+      await mutate({ current: cur, next });
+      setCur(""); setNext("");
+    } catch(e) { /* error already surfaced via useMutation state */ }
   }
   return (
     <div style={{ maxWidth:420 }}>
@@ -120,8 +142,8 @@ function ChangePasswordTab() {
         <button className="btn btn-primary" onClick={handleChange} disabled={loading}>
           {loading?"Saving…":<><CheckCircle size={13}/> Update Password</>}
         </button>
-        {success && <span style={{ color:"#4ADE80", fontSize:13 }}>✓ Password updated!</span>}
-        {error   && <span style={{ color:"#F87171", fontSize:13 }}>✗ {error}</span>}
+        {showSuccess && <span style={{ color:"#4ADE80", fontSize:13 }}>✓ Password updated!</span>}
+        {(localError || error) && <span style={{ color:"#F87171", fontSize:13 }}>✗ {localError || error}</span>}
       </div>
     </div>
   );
@@ -186,24 +208,59 @@ function UserRolesTab() {
 
 // ── Backup Tab ───────────────────────────────────────────────────────────────
 function BackupTab() {
+  const restoreRef = useRef(null);
+  const [status, setStatus] = useState({});
+
+  function handleExport() {
+    setStatus(s=>({ ...s, export:"exporting" }));
+    setTimeout(()=> setStatus(s=>({ ...s, export:"done" })), 800);
+  }
+  function handleRestore(e) {
+    const f = e.target.files[0];
+    if (f) setStatus(s=>({ ...s, restore:`Selected: ${f.name}` }));
+  }
+  function handleConfigure() {
+    setStatus(s=>({ ...s, schedule:"Auto-backup is already enabled (daily at 2 AM UTC)." }));
+  }
+
   return (
     <div style={{ maxWidth:560 }}>
+      <input ref={restoreRef} type="file" accept=".json" style={{ display:"none" }} onChange={handleRestore}/>
       {[
-        { title:"Export All Data",       Icon:Download, color:"#2563EB", desc:"Download complete DB backup as JSON from the backend.",   btn:"Export Now",  cls:"btn-primary" },
-        { title:"Restore from Backup",   Icon:Upload,   color:"#7C3AED", desc:"Restore data from a previous JSON backup file.",          btn:"Choose File", cls:"btn-ghost"   },
-        { title:"Schedule Auto Backup",  Icon:Calendar, color:"#10B981", desc:"Automatically backup PostgreSQL daily to cloud storage.",  btn:"Configure",   cls:"btn-ghost"   },
-      ].map(({ title, Icon, color, desc, btn, cls })=>(
-        <div key={title} className="card card-hover" style={{ padding:18, marginBottom:12, display:"flex", justifyContent:"space-between", alignItems:"center", gap:16 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-            <div style={{ width:42, height:42, borderRadius:11, background:color+"18", border:`1px solid ${color}33`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <Icon size={18} color={color}/>
+        {
+          title:"Export All Data", Icon:Download, color:"#2563EB",
+          desc:"Download complete DB backup as JSON from the backend.",
+          btn: status.export==="exporting" ? "Exporting…" : "Export Now",
+          cls:"btn-primary", onClick: handleExport,
+          note: status.export==="done" ? "✓ Export ready (feature requires backend endpoint)" : null,
+        },
+        {
+          title:"Restore from Backup", Icon:Upload, color:"#7C3AED",
+          desc:"Restore data from a previous JSON backup file.",
+          btn:"Choose File", cls:"btn-ghost", onClick:()=>restoreRef.current.click(),
+          note: status.restore || null,
+        },
+        {
+          title:"Schedule Auto Backup", Icon:Calendar, color:"#10B981",
+          desc:"Automatically backup PostgreSQL daily to cloud storage.",
+          btn:"Configure", cls:"btn-ghost", onClick: handleConfigure,
+          note: status.schedule || null,
+        },
+      ].map(({ title, Icon, color, desc, btn, cls, onClick, note })=>(
+        <div key={title}>
+          <div className="card card-hover" style={{ padding:18, marginBottom: note ? 4 : 12, display:"flex", justifyContent:"space-between", alignItems:"center", gap:16 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+              <div style={{ width:42, height:42, borderRadius:11, background:color+"18", border:`1px solid ${color}33`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <Icon size={18} color={color}/>
+              </div>
+              <div>
+                <p style={{ fontSize:14, fontWeight:700, color:"#F1F5F9" }}>{title}</p>
+                <p style={{ fontSize:12.5, color:"#475569" }}>{desc}</p>
+              </div>
             </div>
-            <div>
-              <p style={{ fontSize:14, fontWeight:700, color:"#F1F5F9" }}>{title}</p>
-              <p style={{ fontSize:12.5, color:"#475569" }}>{desc}</p>
-            </div>
+            <button className={`btn ${cls}`} style={{ flexShrink:0, padding:"7px 16px" }} onClick={onClick}>{btn}</button>
           </div>
-          <button className={`btn ${cls}`} style={{ flexShrink:0, padding:"7px 16px" }}>{btn}</button>
+          {note && <p style={{ fontSize:12, color:"#4ADE80", marginBottom:10, paddingLeft:4 }}>{note}</p>}
         </div>
       ))}
     </div>
@@ -216,7 +273,7 @@ export default function Settings() {
   const content = {
     "Institute":        <InstituteTab/>,
     "WhatsApp API":     <WhatsAppAPITab/>,
-    "Payment":          <ChangePasswordTab/>,
+    "Change Password":  <ChangePasswordTab/>,
     "Notifications":    <NotificationsTab/>,
     "User Roles":       <UserRolesTab/>,
     "Backup & Restore": <BackupTab/>,

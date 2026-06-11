@@ -17,6 +17,18 @@ const whatsappApi = {
   // GET /api/whatsapp/stats
   stats: () =>
     api.get("/whatsapp/stats"),
+
+  // POST /api/whatsapp/templates
+  createTemplate: (data) =>
+    api.post("/whatsapp/templates", data),
+
+  // PATCH /api/whatsapp/templates/:id
+  updateTemplate: (id, data) =>
+    api.patch(`/whatsapp/templates/${id}`, data),
+
+  // DELETE /api/whatsapp/templates/:id
+  deleteTemplate: (id) =>
+    api.delete(`/whatsapp/templates/${id}`),
 };
 
 export default whatsappApi;

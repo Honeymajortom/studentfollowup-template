@@ -1,11 +1,12 @@
 // src/pages/Followups.jsx
 import { useState } from "react";
-import { Plus, Phone, MessageSquare, RefreshCw, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Phone, MessageSquare, RefreshCw, CheckCircle } from "lucide-react";
 import { SectionHead, Badge, Avatar, Modal, FormField } from "../components/shared";
 import { Spinner, PageError, EmptyState } from "../components/shared/Spinner";
 import { useApi, useMutation } from "../hooks/useApi";
 import followupsApi from "../api/followups.api";
-import studentsApi from "../api/students.api";
+import studentsApi  from "../api/students.api";
+import { validateFollowupForm, validateCompleteForm, hasErrors } from "../utils/validate";
 
 const FILTERS = ["All", "scheduled", "pending", "overdue", "new"];
 const OUTCOMES = ["Enrolled", "Interested — follow up again", "Not Interested", "Not Reachable", "Demo Scheduled", "Payment Received"];
@@ -15,13 +16,11 @@ export default function Followups() {
   const [modal, setModal] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newFollowup, setNewFollowup] = useState({
-    student_id: "",
-    type: "call",
-    scheduled_at: "",
-    notes: "",
-    next_date: ""
+    student_id: "", type: "call", scheduled_at: "", notes: "", next_date: "",
   });
-  const [popup, setPopup] = useState({ outcome: "", notes: "", next_date: "", status: "completed" });
+  const [addErrors,  setAddErrors]  = useState({});
+  const [popup,      setPopup]      = useState({ outcome: "", notes: "", next_date: "", status: "completed" });
+  const [popupErrors, setPopupErrors] = useState({});
 
   const today = new Date().toISOString().split("T")[0];
   const { data: summaryData } = useApi(() => followupsApi.todaySummary());
@@ -30,19 +29,42 @@ export default function Followups() {
     () => followupsApi.list({ date: today, status: filterTab === "All" ? undefined : filterTab, limit: 20 }),
     [filterTab]
   );
+  const { data: studentsData } = useApi(() => studentsApi.list({ limit: 200 }));
   const { mutate: completeFollow, loading: completing } = useMutation((d) => followupsApi.complete(modal?.id, d));
-  const { mutate: createFollowup, loading: creating } = useMutation((d) => followupsApi.create(d));
+  const { mutate: createFollowup, loading: creating   } = useMutation((d) => followupsApi.create(d));
+
+  const allStudents = studentsData?.rows || [];
 
   const followups = data?.rows || [];
   const summary = summaryData?.summary || {};
 
   async function handleComplete() {
+    const errs = validateCompleteForm(popup);
+    if (hasErrors(errs)) { setPopupErrors(errs); return; }
     try {
       await completeFollow(popup);
       setModal(null);
+      setPopupErrors({});
       refetch();
     } catch (e) { alert(e.message); }
   }
+
+  async function handleAddFollowup() {
+    const errs = validateFollowupForm(newFollowup);
+    if (hasErrors(errs)) { setAddErrors(errs); return; }
+    try {
+      await createFollowup(newFollowup);
+      setShowAddModal(false);
+      setNewFollowup({ student_id: "", type: "call", scheduled_at: "", notes: "", next_date: "" });
+      setAddErrors({});
+      refetch();
+    } catch (e) { alert(e.message); }
+  }
+
+  const setNew = k => e => {
+    setNewFollowup(p => ({ ...p, [k]: e.target.value }));
+    if (addErrors[k]) setAddErrors(p => { const n = { ...p }; delete n[k]; return n; });
+  };
 
   return (
     <div>
@@ -94,7 +116,14 @@ export default function Followups() {
 
           {error ? <PageError message={error} onRetry={refetch} /> :
             loading ? <Spinner text="Loading follow-ups…" /> :
-              followups.length === 0 ? <EmptyState emoji="📅" title="No follow-ups" sub="Nothing scheduled for this filter." /> :
+              followups.length === 0 ? (
+                <EmptyState
+                  emoji="📅"
+                  title={filterTab === "All" ? "No follow-ups yet" : `No ${filterTab} follow-ups`}
+                  sub={filterTab === "All" ? "Schedule your first follow-up to get started" : "Try switching to a different filter"}
+                  action={{ label: "+ Schedule Follow-up", onClick: () => setShowAddModal(true) }}
+                />
+              ) :
                 followups.map(f => (
                   <div key={f.id} className="card card-hover" style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
                     <div style={{ display: "flex", gap: 14, flex: 1 }}>
@@ -136,17 +165,29 @@ export default function Followups() {
               <p style={{ fontSize: 12, color: "#7C3AED" }}>{modal.course_name}</p>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <FormField label="Call Outcome">
-                <select className="inp" value={popup.outcome} onChange={e => setPopup(p => ({ ...p, outcome: e.target.value }))}>
+              <FormField label="Call Outcome" required error={popupErrors.outcome}>
+                <select
+                  className="inp"
+                  value={popup.outcome}
+                  onChange={e => { setPopup(p => ({ ...p, outcome: e.target.value })); if (popupErrors.outcome) setPopupErrors(p => { const n={...p}; delete n.outcome; return n; }); }}
+                >
                   <option value="">Select outcome…</option>
                   {OUTCOMES.map(o => <option key={o}>{o}</option>)}
                 </select>
               </FormField>
-              <FormField label="Notes"><textarea className="inp" rows={3} placeholder="What was discussed…" value={popup.notes} onChange={e => setPopup(p => ({ ...p, notes: e.target.value }))} /></FormField>
+              <FormField label="Notes">
+                <textarea className="inp" rows={3} placeholder="What was discussed…" value={popup.notes} onChange={e => setPopup(p => ({ ...p, notes: e.target.value }))} />
+              </FormField>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <FormField label="Next Follow-up Date" col="1"><input className="inp" type="date" value={popup.next_date} onChange={e => setPopup(p => ({ ...p, next_date: e.target.value }))} /></FormField>
-                <FormField label="Update Status" col="2">
-                  <select className="inp" value={popup.status} onChange={e => setPopup(p => ({ ...p, status: e.target.value }))}>
+                <FormField label="Next Follow-up Date" col="1">
+                  <input className="inp" type="date" value={popup.next_date} onChange={e => setPopup(p => ({ ...p, next_date: e.target.value }))} />
+                </FormField>
+                <FormField label="Update Status" required col="2" error={popupErrors.status}>
+                  <select
+                    className="inp"
+                    value={popup.status}
+                    onChange={e => { setPopup(p => ({ ...p, status: e.target.value })); if (popupErrors.status) setPopupErrors(p => { const n={...p}; delete n.status; return n; }); }}
+                  >
                     {["completed", "rescheduled", "no_answer", "enrolled"].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </FormField>
@@ -161,22 +202,61 @@ export default function Followups() {
           </>
         )}
       </Modal>
-      <Modal
-        open={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Add Follow-up"
-        width={500}
-      >
-        <p style={{ color: "#94A3B8" }}>
-          Add follow-up form goes here.
-        </p>
+      <Modal open={showAddModal} onClose={() => { setShowAddModal(false); setAddErrors({}); }} title="Add Follow-up" width={500}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <FormField label="Student" required error={addErrors.student_id}>
+            <select
+              className="inp"
+              value={newFollowup.student_id}
+              onChange={setNew("student_id")}
+            >
+              <option value="">Select student…</option>
+              {allStudents.map(s => (
+                <option key={s.id} value={s.id}>{s.full_name} — {s.mobile}</option>
+              ))}
+            </select>
+          </FormField>
 
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowAddModal(false)}
-        >
-          Save
-        </button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <FormField label="Type" col="1">
+              <select className="inp" value={newFollowup.type} onChange={setNew("type")}>
+                {["call", "whatsapp", "walk_in", "video_call", "email"].map(t => (
+                  <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Scheduled Date & Time" required col="2" error={addErrors.scheduled_at}>
+              <input
+                className="inp"
+                type="datetime-local"
+                value={newFollowup.scheduled_at}
+                onChange={setNew("scheduled_at")}
+              />
+            </FormField>
+          </div>
+
+          <FormField label="Notes">
+            <textarea
+              className="inp"
+              rows={3}
+              placeholder="What to discuss, context…"
+              value={newFollowup.notes}
+              onChange={setNew("notes")}
+              style={{ resize: "none" }}
+            />
+          </FormField>
+
+          <FormField label="Next Follow-up Date (optional)">
+            <input className="inp" type="date" value={newFollowup.next_date} onChange={setNew("next_date")} />
+          </FormField>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <button className="btn btn-primary" onClick={handleAddFollowup} disabled={creating}>
+            {creating ? "Saving…" : <><CheckCircle size={13} /> Schedule Follow-up</>}
+          </button>
+          <button className="btn btn-ghost" onClick={() => { setShowAddModal(false); setAddErrors({}); }}>Cancel</button>
+        </div>
       </Modal>
     </div>
   );

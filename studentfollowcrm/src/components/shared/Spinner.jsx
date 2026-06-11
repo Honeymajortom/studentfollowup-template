@@ -30,12 +30,17 @@ export function PageError({ message, onRetry }) {
   );
 }
 
-export function EmptyState({ emoji = "📭", title = "Nothing here yet", sub = "" }) {
+export function EmptyState({ emoji = "📭", title = "Nothing here yet", sub = "", action }) {
   return (
     <div style={{ textAlign: "center", padding: 60 }}>
       <div style={{ fontSize: 42, marginBottom: 12 }}>{emoji}</div>
       <p style={{ fontSize: 15, fontWeight: 700, color: "#64748B", marginBottom: 6 }}>{title}</p>
-      {sub && <p style={{ fontSize: 13, color: "#334155" }}>{sub}</p>}
+      {sub && <p style={{ fontSize: 13, color: "#334155", marginBottom: action ? 20 : 0 }}>{sub}</p>}
+      {action && (
+        <button className="btn btn-primary" style={{ marginTop: sub ? 0 : 20 }} onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }

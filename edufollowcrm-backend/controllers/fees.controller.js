@@ -128,4 +128,93 @@ async function studentPayments(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listFees, dashboard, addPayment, downloadReceipt, studentPayments };
+// POST /api/fees/bulk-payment
+// Records full pending amount as received for each selected student.
+async function bulkPayment(req, res, next) {
+  try {
+    const { student_ids, mode = "cash" } = req.body;
+
+    let processed = 0;
+    let skipped   = 0;
+
+    for (const sid of student_ids) {
+      const fee = await queryOne(
+        "SELECT * FROM fees WHERE student_id = $1",
+        [sid]
+      );
+      if (!fee) { skipped++; continue; }
+
+      const pending = Math.max(
+        0,
+        Number(fee.total_fees) - Number(fee.paid) - Number(fee.discount)
+      );
+      if (pending <= 0) { skipped++; continue; }
+
+      await withTransaction(async (client) => {
+        await client.query(
+          `INSERT INTO payments (student_id, amount, mode, note, recorded_by)
+           VALUES ($1, $2, $3, 'Bulk payment recorded', $4)`,
+          [sid, pending, mode, req.user.id]
+        );
+        await client.query(
+          `UPDATE fees
+           SET paid = paid + $1,
+               status = CASE
+                 WHEN (paid + $1) >= (total_fees - discount) THEN 'paid'::fees_status
+                 WHEN (paid + $1) > 0 THEN 'partial'::fees_status
+                 ELSE status END
+           WHERE student_id = $2`,
+          [pending, sid]
+        );
+      });
+      processed++;
+    }
+
+    return R.success(
+      res,
+      { processed, skipped },
+      `Payment recorded for ${processed} student(s)${skipped ? `, ${skipped} skipped (already paid)` : ""}`
+    );
+  } catch (err) { next(err); }
+}
+
+// GET /api/fees/export?format=csv|pdf&status=&course_id=
+async function exportFees(req, res, next) {
+  try {
+    const { format = "csv", status, course_id } = req.query;
+    const conditions = [];
+    const params = [];
+    let pi = 1;
+    if (status)    { conditions.push(`f.status = $${pi++}`);    params.push(status); }
+    if (course_id) { conditions.push(`s.course_id = $${pi++}`); params.push(course_id); }
+    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+
+    const rows = await queryAll(
+      `SELECT f.*, s.full_name, s.student_code, s.mobile, c.name AS course_name
+       FROM fees f
+       JOIN    students s ON s.id = f.student_id
+       LEFT JOIN courses c ON c.id = s.course_id
+       ${where}
+       ORDER BY s.full_name ASC
+       LIMIT 5000`,
+      params
+    );
+
+    const date = new Date().toISOString().split("T")[0];
+    const { feesToCSV, feesToPDF } = require("../services/export.service");
+
+    if (format === "pdf") {
+      const buf = await feesToPDF(rows);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="fees-${date}.pdf"`);
+      return res.send(buf);
+    }
+
+    const csv = feesToCSV(rows);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="fees-${date}.csv"`);
+    return res.send(csv);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listFees, dashboard, addPayment, bulkPayment, exportFees, downloadReceipt, studentPayments };

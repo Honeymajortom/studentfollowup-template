@@ -131,6 +131,57 @@ const createStaffSchema = Joi.object({
   joined_date: Joi.date().iso(),
 });
 
+// ── Lead schemas ──────────────────────────────────────────────
+const createLeadSchema = Joi.object({
+  name:               Joi.string().min(2).max(150).required(),
+  mobile:             phone.required(),
+  email:              Joi.string().email().lowercase(),
+  city:               Joi.string().max(100),
+  college:            Joi.string().max(200),
+  course_interest_id: uuid,
+  source:             Joi.string().valid(
+                        "college_visit","walk_in","website","whatsapp",
+                        "facebook","referral","job_fair","home_visit","other"
+                      ).default("walk_in"),
+  assigned_to:        uuid,
+  next_followup:      Joi.date().iso(),
+  remarks:            Joi.string().max(1000),
+});
+
+const updateLeadSchema = createLeadSchema
+  .fork(["name", "mobile"], f => f.optional())
+  .keys({
+    status: Joi.string().valid(
+      "new","contacted","follow_up","interested",
+      "hot_lead","not_interested","converted","lost"
+    ),
+  });
+
+const convertLeadSchema = Joi.object({
+  course_id:    uuid,
+  batch_timing: Joi.string().max(50),
+  enrolled_at:  Joi.date().iso(),
+});
+
+// ── WhatsApp template schemas ─────────────────────────────────
+const templateKey = Joi.string().pattern(/^[a-z0-9_]+$/).max(100)
+  .messages({ "string.pattern.base": "Template key must be lowercase letters, numbers, or underscores" });
+
+const createTemplateSchema = Joi.object({
+  name:         Joi.string().min(2).max(100).required(),
+  template_key: templateKey.required(),
+  body:         Joi.string().min(10).max(2000).required(),
+  variables:    Joi.array().items(Joi.string().max(30)).default([]),
+});
+
+const updateTemplateSchema = Joi.object({
+  name:         Joi.string().min(2).max(100),
+  template_key: templateKey,
+  body:         Joi.string().min(10).max(2000),
+  variables:    Joi.array().items(Joi.string().max(30)),
+  is_active:    Joi.boolean(),
+}).min(1);
+
 // ── WhatsApp schema ───────────────────────────────────────────
 const sendWASchema = Joi.object({
   student_ids:  Joi.array().items(uuid).min(1),
@@ -153,5 +204,18 @@ module.exports = {
     attendance:       attendanceSchema,
     createStaff:      createStaffSchema,
     sendWA:           sendWASchema,
+    createLead:       createLeadSchema,
+    updateLead:       updateLeadSchema,
+    convertLead:      convertLeadSchema,
+    bulkAssign:       Joi.object({
+                        student_ids:  Joi.array().items(uuid).min(1).required(),
+                        counselor_id: uuid.required(),
+                      }),
+    bulkPayment:      Joi.object({
+                        student_ids: Joi.array().items(uuid).min(1).required(),
+                        mode:        Joi.string().valid("cash","upi","neft","cheque","emi","scholarship").default("cash"),
+                      }),
+    createTemplate:   createTemplateSchema,
+    updateTemplate:   updateTemplateSchema,
   },
 };

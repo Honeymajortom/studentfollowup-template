@@ -1,6 +1,7 @@
 // src/App.jsx
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import { canAccess } from "./utils/permissions";
 
 import Layout          from "./components/layout/Layout";
 import Login           from "./pages/Login";
@@ -8,6 +9,8 @@ import Dashboard       from "./pages/Dashboard";
 import Students        from "./pages/Students";
 import StudentProfile  from "./pages/StudentProfile";
 import AddStudent      from "./pages/AddStudent";
+import Leads            from "./pages/Leads";
+import LeadProfile      from "./pages/LeadProfile";
 import Followups       from "./pages/Followups";
 import WhatsApp        from "./pages/WhatsApp";
 import Fees            from "./pages/Fees";
@@ -43,6 +46,12 @@ function GuestOnly() {
   return user ? <Navigate to="/dashboard" replace/> : <Outlet/>;
 }
 
+// ── Role guard — redirects to /dashboard if role not allowed ─────────────────
+function RoleGuard({ page, children }) {
+  const { user } = useAuth();
+  return canAccess(user?.role, page) ? children : <Navigate to="/dashboard" replace/>;
+}
+
 // ── Placeholder for unbuilt modules ──────────────────────────────────────────
 function Soon({ title }) {
   return (
@@ -75,16 +84,17 @@ const router = createBrowserRouter([
           { path: "dashboard",                     element: <Dashboard/> },
           { path: "students",                      element: <Students/> },
           { path: "student-profile/:id",           element: <StudentProfile/> },
-          { path: "add-student",                   element: <AddStudent/> },
-          { path: "edit-student/:id",              element: <AddStudent/> },
-          { path: "leads",                         element: <Soon title="Leads Management"/> },
-          { path: "followups",                     element: <Followups/> },
-          { path: "whatsapp",                      element: <WhatsApp/> },
-          { path: "fees",                          element: <Fees/> },
-          { path: "courses",                       element: <CoursesPage/> },
-          { path: "attendance",                    element: <Attendance/> },
-          { path: "reports",                       element: <Reports/> },
-          { path: "staff",                         element: <StaffManagement/> },
+          { path: "add-student",                   element: <RoleGuard page="add-student"><AddStudent/></RoleGuard> },
+          { path: "edit-student/:id",              element: <RoleGuard page="edit-student"><AddStudent/></RoleGuard> },
+          { path: "leads",                         element: <RoleGuard page="leads"><Leads/></RoleGuard> },
+          { path: "lead-profile/:id",              element: <RoleGuard page="lead-profile"><LeadProfile/></RoleGuard> },
+          { path: "followups",                     element: <RoleGuard page="followups"><Followups/></RoleGuard> },
+          { path: "whatsapp",                      element: <RoleGuard page="whatsapp"><WhatsApp/></RoleGuard> },
+          { path: "fees",                          element: <RoleGuard page="fees"><Fees/></RoleGuard> },
+          { path: "courses",                       element: <RoleGuard page="courses"><CoursesPage/></RoleGuard> },
+          { path: "attendance",                    element: <RoleGuard page="attendance"><Attendance/></RoleGuard> },
+          { path: "reports",                       element: <RoleGuard page="reports"><Reports/></RoleGuard> },
+          { path: "staff",                         element: <RoleGuard page="staff"><StaffManagement/></RoleGuard> },
           { path: "settings",                      element: <Settings/> },
           { path: "*",                             element: <Navigate to="/dashboard" replace/> },
         ],

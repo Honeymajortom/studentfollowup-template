@@ -128,6 +128,45 @@ async function complete(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// GET /api/followups/notifications
+// Returns today's + overdue non-completed follow-ups for the current user.
+// Counselors see only their own; admins see all.
+async function notifications(req, res, next) {
+  try {
+    const params = [];
+    let pi = 1;
+    let roleClause = "";
+
+    if (req.user.role === "counselor") {
+      roleClause = `AND f.assigned_to = $${pi++}`;
+      params.push(req.user.id);
+    }
+
+    const rows = await queryAll(
+      `SELECT f.id, f.type, f.status, f.scheduled_at, f.notes,
+              s.full_name AS student_name, s.mobile AS student_mobile,
+              c.name      AS course_name,
+              COUNT(*) OVER () AS total_count
+       FROM followups f
+       JOIN students s ON s.id = f.student_id
+       LEFT JOIN courses c ON c.id = s.course_id
+       WHERE f.scheduled_at::date <= CURRENT_DATE
+         AND f.status NOT IN ('completed', 'rescheduled', 'no_answer')
+         ${roleClause}
+       ORDER BY
+         CASE WHEN f.scheduled_at::date < CURRENT_DATE THEN 0 ELSE 1 END,
+         f.scheduled_at ASC
+       LIMIT 15`,
+      params
+    );
+
+    const count = rows.length > 0 ? parseInt(rows[0].total_count) : 0;
+    const items = rows.map(({ total_count, ...r }) => r);
+
+    return R.success(res, { items, count });
+  } catch (err) { next(err); }
+}
+
 // DELETE /api/followups/:id
 async function remove(req, res, next) {
   try {
@@ -137,4 +176,4 @@ async function remove(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { list, todaySummary, create, complete, remove };
+module.exports = { list, todaySummary, notifications, create, complete, remove };

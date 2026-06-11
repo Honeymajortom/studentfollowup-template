@@ -10,6 +10,10 @@ const followupsApi = {
   todaySummary: () =>
     api.get("/followups/today-summary"),
 
+  // GET /api/followups/notifications
+  notifications: () =>
+    api.get("/followups/notifications"),
+
   // POST /api/followups
   create: (data) =>
     api.post("/followups", data),

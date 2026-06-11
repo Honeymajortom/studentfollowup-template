@@ -12,6 +12,9 @@ router.get("/", ctrl.list);
 // GET  /api/followups/today-summary
 router.get("/today-summary", ctrl.todaySummary);
 
+// GET  /api/followups/notifications
+router.get("/notifications", ctrl.notifications);
+
 // POST /api/followups             — schedule a new follow-up
 router.post(
   "/",

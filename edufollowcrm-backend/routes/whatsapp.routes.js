@@ -33,4 +33,13 @@ router.get("/logs", ctrl.getLogs);
 // GET  /api/whatsapp/stats        — sent/delivered/failed counts
 router.get("/stats", ctrl.stats);
 
+// POST /api/whatsapp/templates    — create template (admin only)
+router.post("/templates", authorize("admin"), validate(schemas.createTemplate), ctrl.createTemplate);
+
+// PATCH /api/whatsapp/templates/:id — update template (admin only)
+router.patch("/templates/:id", authorize("admin"), validate(schemas.updateTemplate), ctrl.updateTemplate);
+
+// DELETE /api/whatsapp/templates/:id — deactivate template (admin only)
+router.delete("/templates/:id", authorize("admin"), ctrl.deleteTemplate);
+
 module.exports = router;

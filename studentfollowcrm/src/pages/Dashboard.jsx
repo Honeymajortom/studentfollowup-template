@@ -1,4 +1,5 @@
 // src/pages/Dashboard.jsx
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, AreaChart, Area,
@@ -6,7 +7,7 @@ import {
 } from "recharts";
 import {
   Users, CalendarCheck, DollarSign, TrendingUp,
-  AlertCircle, UserCheck, BookOpen, MessageSquare, Phone,
+  AlertCircle, UserCheck, BookOpen, MessageSquare, Phone, Calendar,
 } from "lucide-react";
 import { StatCard, SectionHead, ChartTooltip, Badge } from "../components/shared";
 import { Spinner, PageError } from "../components/shared/Spinner";
@@ -14,12 +15,151 @@ import { useApi } from "../hooks/useApi";
 import reportsApi   from "../api/reports.api";
 import followupsApi from "../api/followups.api";
 
+// ── Date helpers ───────────────────────────────────────────────
+function fmt(d) { return d.toISOString().split("T")[0]; }
+
+const today = new Date();
+
+const PRESETS = [
+  {
+    label: "Today",
+    from:  () => fmt(today),
+    to:    () => fmt(today),
+  },
+  {
+    label: "This Week",
+    from:  () => { const d = new Date(today); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return fmt(d); },
+    to:    () => fmt(today),
+  },
+  {
+    label: "This Month",
+    from:  () => fmt(new Date(today.getFullYear(), today.getMonth(), 1)),
+    to:    () => fmt(today),
+  },
+  {
+    label: "Last Month",
+    from:  () => fmt(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
+    to:    () => fmt(new Date(today.getFullYear(), today.getMonth(), 0)),
+  },
+];
+
+const DEFAULT_PRESET = "This Month";
+
+function initRange() {
+  const preset = PRESETS.find(p => p.label === DEFAULT_PRESET);
+  return { from: preset.from(), to: preset.to() };
+}
+
+// ── Date Range Picker ──────────────────────────────────────────
+function DateRangePicker({ from, to, preset, onPreset, onCustom }) {
+  const [showCustom, setShowCustom] = useState(false);
+  const [customFrom, setCustomFrom] = useState(from);
+  const [customTo,   setCustomTo]   = useState(to);
+
+  function applyCustom() {
+    if (customFrom && customTo && customFrom <= customTo) {
+      onCustom(customFrom, customTo);
+      setShowCustom(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      {/* Preset buttons */}
+      <div style={{ display: "flex", background: "#0D1526", border: "1px solid #1E2A45", borderRadius: 9, padding: 3, gap: 2 }}>
+        {PRESETS.map(p => (
+          <button
+            key={p.label}
+            onClick={() => { setShowCustom(false); onPreset(p); }}
+            style={{
+              padding: "4px 12px", fontSize: 12, borderRadius: 7, border: "none",
+              cursor: "pointer", fontWeight: 600, transition: "all .15s",
+              background: preset === p.label ? "linear-gradient(135deg,#2563EB,#7C3AED)" : "transparent",
+              color:      preset === p.label ? "#fff" : "#475569",
+            }}
+          >
+            {p.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setShowCustom(v => !v)}
+          style={{
+            padding: "4px 12px", fontSize: 12, borderRadius: 7, border: "none",
+            cursor: "pointer", fontWeight: 600, transition: "all .15s",
+            background: preset === "Custom" ? "linear-gradient(135deg,#2563EB,#7C3AED)" : "transparent",
+            color:      preset === "Custom" ? "#fff" : "#475569",
+            display: "flex", alignItems: "center", gap: 5,
+          }}
+        >
+          <Calendar size={11} /> Custom
+        </button>
+      </div>
+
+      {/* Custom date inputs */}
+      {showCustom && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#0D1526", border: "1px solid #1E2A45", borderRadius: 9, padding: "5px 10px" }}>
+          <input
+            type="date"
+            className="inp"
+            style={{ padding: "3px 8px", fontSize: 12, width: 140 }}
+            value={customFrom}
+            max={customTo}
+            onChange={e => setCustomFrom(e.target.value)}
+          />
+          <span style={{ fontSize: 11, color: "#334155" }}>→</span>
+          <input
+            type="date"
+            className="inp"
+            style={{ padding: "3px 8px", fontSize: 12, width: 140 }}
+            value={customTo}
+            min={customFrom}
+            onChange={e => setCustomTo(e.target.value)}
+          />
+          <button
+            className="btn btn-primary"
+            style={{ padding: "4px 12px", fontSize: 12 }}
+            onClick={applyCustom}
+            disabled={!customFrom || !customTo || customFrom > customTo}
+          >
+            Apply
+          </button>
+        </div>
+      )}
+
+      {/* Active range label */}
+      {preset !== "Custom" && (
+        <span style={{ fontSize: 11, color: "#334155", whiteSpace: "nowrap" }}>
+          {from} → {to}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [{ from, to }, setRange] = useState(initRange);
+  const [preset, setPreset]      = useState(DEFAULT_PRESET);
 
-  const { data: kpi,    loading: kpiLoad, error: kpiErr, refetch } = useApi(() => reportsApi.dashboard());
-  const { data: fuData, loading: fuLoad }  = useApi(() => followupsApi.list({ limit: 4 }));
-  const { data: monthly }                  = useApi(() => reportsApi.admissions());
+  function applyPreset(p) {
+    setPreset(p.label);
+    setRange({ from: p.from(), to: p.to() });
+  }
+
+  function applyCustom(f, t) {
+    setPreset("Custom");
+    setRange({ from: f, to: t });
+  }
+
+  const { data: kpi,    loading: kpiLoad, error: kpiErr, refetch } =
+    useApi(() => reportsApi.dashboard({ from, to }), [from, to]);
+
+  const { data: fuData, loading: fuLoad } =
+    useApi(() => followupsApi.list({ limit: 4 }));
+
+  const { data: monthly } =
+    useApi(() => reportsApi.admissions({ from, to }), [from, to]);
 
   if (kpiLoad) return <Spinner text="Loading dashboard…" />;
   if (kpiErr)  return <PageError message={kpiErr} onRetry={refetch} />;
@@ -34,20 +174,28 @@ export default function Dashboard() {
   const STATS = [
     { icon: Users,         label: "Total Students",      value: s.total                || "—", color: "#2563EB" },
     { icon: CalendarCheck, label: "Today's Follow-ups",  value: fu.today               || "—", color: "#7C3AED" },
-    { icon: DollarSign,    label: "Pending Fees",         value: inr(f.pending),               color: "#F59E0B" },
-    { icon: TrendingUp,    label: "Enrolled This Month",  value: s.enrolled_this_period || "—", color: "#10B981" },
-    { icon: AlertCircle,   label: "Overdue Follow-ups",   value: fu.overdue             || "—", color: "#EF4444" },
-    { icon: UserCheck,     label: "New This Period",      value: s.new_this_period      || "—", color: "#06B6D4" },
-    { icon: BookOpen,      label: "Overdue Fees Count",   value: f.overdue_count        || "—", color: "#8B5CF6" },
-    { icon: MessageSquare, label: "WA Sent",              value: wa.total_sent          || "—", color: "#22C55E" },
+    { icon: DollarSign,    label: "Pending Fees",        value: inr(f.pending),                color: "#F59E0B" },
+    { icon: TrendingUp,    label: "Enrolled This Period", value: s.enrolled_this_period || "—", color: "#10B981" },
+    { icon: AlertCircle,   label: "Overdue Follow-ups",  value: fu.overdue             || "—", color: "#EF4444" },
+    { icon: UserCheck,     label: "New This Period",     value: s.new_this_period      || "—", color: "#06B6D4" },
+    { icon: BookOpen,      label: "Overdue Fees Count",  value: f.overdue_count        || "—", color: "#8B5CF6" },
+    { icon: MessageSquare, label: "WA Sent",             value: wa.total_sent          || "—", color: "#22C55E" },
   ];
 
-  const chartData  = monthly?.rows || [];
-  const followups  = fuData?.rows  || [];
+  const chartData = monthly?.rows || [];
+  const followups = fuData?.rows  || [];
 
   return (
     <div>
-      <SectionHead title="Dashboard" sub={kpi?.period ? `${kpi.period.from}  →  ${kpi.period.to}` : ""} />
+      <SectionHead title="Dashboard">
+        <DateRangePicker
+          from={from}
+          to={to}
+          preset={preset}
+          onPreset={applyPreset}
+          onCustom={applyCustom}
+        />
+      </SectionHead>
 
       {/* Stats Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>

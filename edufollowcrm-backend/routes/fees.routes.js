@@ -12,12 +12,23 @@ router.get("/", ctrl.listFees);
 // GET  /api/fees/dashboard         — KPI totals
 router.get("/dashboard", ctrl.dashboard);
 
+// GET  /api/fees/export            — CSV or PDF download
+router.get("/export", ctrl.exportFees);
+
 // POST /api/fees/payment           — record a new payment
 router.post(
   "/payment",
   authorize("admin", "accountant", "counselor"),
   validate(schemas.createPayment),
   ctrl.addPayment
+);
+
+// POST /api/fees/bulk-payment      — record full pending amount for multiple students
+router.post(
+  "/bulk-payment",
+  authorize("admin", "accountant", "counselor"),
+  validate(schemas.bulkPayment),
+  ctrl.bulkPayment
 );
 
 // GET  /api/fees/payment/:id/receipt  — download PDF receipt

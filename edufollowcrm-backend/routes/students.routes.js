@@ -7,6 +7,17 @@ const { validate, schemas }       = require("../middleware/validate");
 // All student routes require authentication
 router.use(authenticate);
 
+// PATCH  /api/students/bulk-assign  — must be before /:id
+router.patch(
+  "/bulk-assign",
+  authorize("admin", "counselor"),
+  validate(schemas.bulkAssign),
+  ctrl.bulkAssign
+);
+
+// GET    /api/students/export     — CSV or PDF download (must be before /:id)
+router.get("/export", ctrl.exportStudents);
+
 // GET    /api/students            — list with search/filter/pagination
 router.get("/", ctrl.list);
 

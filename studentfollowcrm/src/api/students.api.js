@@ -22,6 +22,14 @@ const studentsApi = {
   remove: (id) =>
     api.delete(`/students/${id}`),
 
+  // PATCH /api/students/bulk-assign
+  bulkAssign: (data) =>
+    api.patch("/students/bulk-assign", data),
+
+  // GET /api/students/export?format=csv|pdf&...filters
+  export: (params = {}) =>
+    api.get("/students/export", { params, responseType: "blob" }),
+
   // Sub-resources
   getFollowups:  (id) => api.get(`/students/${id}/followups`),
   getPayments:   (id) => api.get(`/students/${id}/payments`),

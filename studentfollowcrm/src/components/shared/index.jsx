@@ -1,5 +1,6 @@
 // src/components/shared/index.jsx
-import { X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, Download } from "lucide-react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 
 /* ── Avatar ─────────────────────────────────────── */
@@ -92,7 +93,7 @@ export function Modal({ open, onClose, title, width = 520, children }) {
 }
 
 /* ── FormField ──────────────────────────────────── */
-export function FormField({ label, required, hint, col = "1/-1", children }) {
+export function FormField({ label, required, hint, error, col = "1/-1", children }) {
   return (
     <div style={{ gridColumn: col }}>
       <label className="field-label">
@@ -100,7 +101,10 @@ export function FormField({ label, required, hint, col = "1/-1", children }) {
         {required && <span style={{ color: "#F87171", marginLeft: 3 }}>*</span>}
       </label>
       {children}
-      {hint && <p style={{ fontSize: 11, color: "#334155", marginTop: 4 }}>{hint}</p>}
+      {error
+        ? <p style={{ fontSize: 11, color: "#F87171", marginTop: 4 }}>⚠ {error}</p>
+        : hint && <p style={{ fontSize: 11, color: "#334155", marginTop: 4 }}>{hint}</p>
+      }
     </div>
   );
 }
@@ -119,6 +123,59 @@ export function ChartTooltip({ active, payload, label }) {
 }
 
 /* ── Toggle ─────────────────────────────────────── */
+/* ── ExportMenu ─────────────────────────────────────── */
+// onExport(format) is called with "csv" or "pdf"
+export function ExportMenu({ onExport, loading = false }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  function pick(fmt) { setOpen(false); onExport(fmt); }
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        className="btn btn-ghost"
+        onClick={() => setOpen(p => !p)}
+        disabled={loading}
+      >
+        <Download size={13} /> {loading ? "Exporting…" : "Export"}{!loading && " ▾"}
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", right: 0,
+          background: "#0E1525", border: "1px solid #1E2A45",
+          borderRadius: 10, overflow: "hidden", zIndex: 200, minWidth: 150,
+          boxShadow: "0 8px 30px #00000060",
+        }}>
+          {[["csv","📄","Export CSV"],["pdf","📑","Export PDF"]].map(([fmt, emoji, label]) => (
+            <button
+              key={fmt}
+              onClick={() => pick(fmt)}
+              style={{
+                display: "block", width: "100%", padding: "10px 16px",
+                background: "none", border: "none", color: "#E2E8F0",
+                fontSize: 13, textAlign: "left", cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "#131D35"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              {emoji} {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Toggle({ value, onChange }) {
   return (
     <button

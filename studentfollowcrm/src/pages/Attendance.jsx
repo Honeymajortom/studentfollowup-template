@@ -1,13 +1,15 @@
 // src/pages/Attendance.jsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Download, Save, CheckCircle } from "lucide-react";
 import { SectionHead, Avatar } from "../components/shared";
-import { Spinner, PageError } from "../components/shared/Spinner";
+import { Spinner, PageError, EmptyState } from "../components/shared/Spinner";
 import { useApi, useMutation } from "../hooks/useApi";
 import attendanceApi from "../api/attendance.api";
 import coursesApi    from "../api/courses.api";
 
 export default function Attendance() {
+  const navigate = useNavigate();
   const [courseId, setCourseId] = useState("");
   const [date,     setDate]     = useState(new Date().toISOString().split("T")[0]);
   const [records,  setRecords]  = useState([]);   // [{ student_id, status, remark }]
@@ -88,13 +90,14 @@ export default function Attendance() {
 
       {/* Sheet */}
       {!courseId ? (
-        <div className="card" style={{ padding:40, textAlign:"center", color:"#334155", fontSize:14 }}>
-          ☝️ Select a course above to load the attendance sheet.
-        </div>
+        <EmptyState emoji="☝️" title="Select a course to begin"
+          sub="Choose a course and date from the controls above to load the attendance sheet" />
       ) : sheetLoading ? <Spinner text="Loading attendance sheet…"/> :
         sheetError   ? <PageError message={sheetError}/> :
-        records.length===0 ? (
-          <div className="card" style={{ padding:40, textAlign:"center", color:"#334155", fontSize:14 }}>No active students found in this course.</div>
+        records.length === 0 ? (
+          <EmptyState emoji="👥" title="No students in this course"
+            sub="Enrol students into this course first, then you can mark attendance"
+            action={{ label: "Go to Students", onClick: () => navigate("/students") }} />
         ) : (
         <div className="card" style={{ padding:0, overflow:"hidden", marginBottom:14 }}>
           <div style={{ background:"#080B14", padding:"10px 18px", display:"flex", gap:8, borderBottom:"1px solid #1E2A45" }}>

@@ -128,4 +128,53 @@ async function webhookReceive(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { send, listTemplates, getLogs, stats, webhookVerify, webhookReceive };
+// POST /api/whatsapp/templates
+async function createTemplate(req, res, next) {
+  try {
+    const { name, template_key, body, variables } = req.body;
+    const t = await queryOne(
+      `INSERT INTO wa_templates (name, template_key, body, variables)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name, template_key, body, variables || []]
+    );
+    return R.created(res, { template: t }, "Template created");
+  } catch (err) {
+    if (err.code === "23505") return R.badRequest(res, "Template name or key already exists");
+    next(err);
+  }
+}
+
+// PATCH /api/whatsapp/templates/:id
+async function updateTemplate(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { name, template_key, body, variables, is_active } = req.body;
+    const t = await queryOne(
+      `UPDATE wa_templates SET
+         name         = COALESCE($2, name),
+         template_key = COALESCE($3, template_key),
+         body         = COALESCE($4, body),
+         variables    = COALESCE($5, variables),
+         is_active    = COALESCE($6, is_active)
+       WHERE id = $1 RETURNING *`,
+      [id, name || null, template_key || null, body || null, variables || null, is_active ?? null]
+    );
+    if (!t) return R.notFound(res, "Template");
+    return R.success(res, { template: t }, "Template updated");
+  } catch (err) { next(err); }
+}
+
+// DELETE /api/whatsapp/templates/:id  — soft-delete (deactivate)
+async function deleteTemplate(req, res, next) {
+  try {
+    const { id } = req.params;
+    const t = await queryOne(
+      `UPDATE wa_templates SET is_active = FALSE WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    if (!t) return R.notFound(res, "Template");
+    return R.success(res, {}, "Template deactivated");
+  } catch (err) { next(err); }
+}
+
+module.exports = { send, listTemplates, getLogs, stats, webhookVerify, webhookReceive, createTemplate, updateTemplate, deleteTemplate };

@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, CheckCircle, MessageSquare, RotateCcw } from "lucide-react";
 import { SectionHead, FormField } from "../components/shared";
-import { useApi } from "../hooks/useApi";
-import { useMutation } from "../hooks/useApi";
+import { useApi, useMutation } from "../hooks/useApi";
+import { validateStudentForm, hasErrors } from "../utils/validate";
 import studentsApi from "../api/students.api";
 import coursesApi  from "../api/courses.api";
 import staffApi    from "../api/staff.api";
@@ -30,8 +30,9 @@ function Section({ title, emoji, children }) {
 
 export default function AddStudent() {
   const navigate = useNavigate();
-  const [form,    setForm]    = useState(INIT);
-  const [success, setSuccess] = useState(false);
+  const [form,     setForm]     = useState(INIT);
+  const [errors,   setErrors]   = useState({});
+  const [success,  setSuccess]  = useState(false);
   const [apiError, setApiError] = useState("");
 
   const { data: coursesData } = useApi(() => coursesApi.list());
@@ -41,17 +42,23 @@ export default function AddStudent() {
   const courses     = coursesData?.courses || [];
   const counselors  = (staffData?.staff || []).filter(s => s.role.includes("counselor") || s.role === "admin");
 
-  const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  const set = k => e => {
+    setForm(p => ({ ...p, [k]: e.target.value }));
+    if (errors[k]) setErrors(p => { const n = { ...p }; delete n[k]; return n; });
+  };
 
   function pickCourse(e) {
     const id = e.target.value;
     const c  = courses.find(c => c.id === id);
     setForm(p => ({ ...p, course_id: id, total_fees: c ? String(c.fees) : p.total_fees }));
+    if (errors.course_id) setErrors(p => { const n = { ...p }; delete n.course_id; return n; });
   }
 
   const pending = Math.max(0, Number(form.total_fees||0) - Number(form.paid||0) - Number(form.discount||0));
 
   async function handleSave(sendWA = false) {
+    const errs = validateStudentForm(form);
+    if (hasErrors(errs)) { setErrors(errs); return; }
     setApiError("");
     try {
       await mutate({
@@ -85,24 +92,24 @@ export default function AddStudent() {
 
       <div className="card" style={{ padding: 28 }}>
         <Section title="Basic Information" emoji="👤">
-          <FormField label="Full Name" required col="1/-1"><input className="inp" value={form.full_name} onChange={set("full_name")} placeholder="e.g. Priya Sharma" /></FormField>
+          <FormField label="Full Name" required col="1/-1" error={errors.full_name}><input className="inp" value={form.full_name} onChange={set("full_name")} placeholder="e.g. Priya Sharma" /></FormField>
           <FormField label="Gender" col="1"><select className="inp" value={form.gender} onChange={set("gender")}>{["male","female","other"].map(g=><option key={g} value={g}>{g}</option>)}</select></FormField>
           <FormField label="Date of Birth" col="2"><input className="inp" type="date" value={form.dob} onChange={set("dob")} /></FormField>
-          <FormField label="Mobile Number" required col="1" hint="10-digit Indian mobile"><input className="inp" value={form.mobile} onChange={set("mobile")} placeholder="9XXXXXXXXX" /></FormField>
-          <FormField label="Parent Mobile" col="2"><input className="inp" value={form.parent_mobile} onChange={set("parent_mobile")} placeholder="9XXXXXXXXX" /></FormField>
-          <FormField label="Email Address" col="1/-1"><input className="inp" type="email" value={form.email} onChange={set("email")} placeholder="student@email.com" /></FormField>
+          <FormField label="Mobile Number" required col="1" hint="10-digit Indian mobile" error={errors.mobile}><input className="inp" value={form.mobile} onChange={set("mobile")} placeholder="9XXXXXXXXX" /></FormField>
+          <FormField label="Parent Mobile" col="2" error={errors.parent_mobile}><input className="inp" value={form.parent_mobile} onChange={set("parent_mobile")} placeholder="9XXXXXXXXX" /></FormField>
+          <FormField label="Email Address" col="1/-1" error={errors.email}><input className="inp" type="email" value={form.email} onChange={set("email")} placeholder="student@email.com" /></FormField>
           <FormField label="Full Address" col="1/-1"><textarea className="inp" rows={2} value={form.address} onChange={set("address")} placeholder="House no., Street, Area, City, PIN" /></FormField>
         </Section>
 
         <Section title="Course Details" emoji="📚">
-          <FormField label="Course Name" required col="1">
+          <FormField label="Course Name" required col="1" error={errors.course_id}>
             <select className="inp" value={form.course_id} onChange={pickCourse}>
               <option value="">Select a course…</option>
               {courses.map(c => <option key={c.id} value={c.id}>{c.name} — ₹{Number(c.fees).toLocaleString()}</option>)}
             </select>
           </FormField>
           <FormField label="Batch Timing" col="2"><input className="inp" value={form.batch_timing} onChange={set("batch_timing")} placeholder="e.g. 9:00 AM – 11:00 AM" /></FormField>
-          <FormField label="Counselor Assigned" required col="1/-1">
+          <FormField label="Counselor Assigned" required col="1/-1" error={errors.counselor_id}>
             <select className="inp" value={form.counselor_id} onChange={set("counselor_id")}>
               <option value="">Select counselor…</option>
               {counselors.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
@@ -111,7 +118,7 @@ export default function AddStudent() {
         </Section>
 
         <Section title="Fees Details" emoji="💰">
-          <FormField label="Total Fees (₹)" required col="1"><input className="inp" type="number" value={form.total_fees} onChange={set("total_fees")} placeholder="35000" /></FormField>
+          <FormField label="Total Fees (₹)" required col="1" error={errors.total_fees}><input className="inp" type="number" value={form.total_fees} onChange={set("total_fees")} placeholder="35000" /></FormField>
           <FormField label="Discount (₹)" col="2"><input className="inp" type="number" value={form.discount} onChange={set("discount")} placeholder="0" /></FormField>
           <FormField label="Paid Amount (₹)" col="1"><input className="inp" type="number" value={form.paid} onChange={set("paid")} placeholder="0" /></FormField>
           <FormField label="Remaining (auto)" col="2"><input className="inp" readOnly value={form.total_fees ? "₹" + pending.toLocaleString("en-IN") : "—"} style={{ color: "#F87171", fontWeight: 700 }} /></FormField>
@@ -140,10 +147,10 @@ export default function AddStudent() {
         </Section>
 
         <div style={{ display: "flex", gap: 10 }}>
-          <button className="btn btn-primary" style={{ padding: "10px 24px" }} onClick={() => handleSave(false)} disabled={loading}>
+          <button className="btn btn-primary" style={{ padding: "10px 24px" }} onClick={() => handleSave(false)} disabled={loading || hasErrors(errors)}>
             {loading ? "Saving…" : <><CheckCircle size={14} /> Save Student</>}
           </button>
-          <button className="btn btn-success" style={{ padding: "10px 24px" }} onClick={() => handleSave(true)} disabled={loading}>
+          <button className="btn btn-success" style={{ padding: "10px 24px" }} onClick={() => handleSave(true)} disabled={loading || hasErrors(errors)}>
             <MessageSquare size={14} /> Save & Send WhatsApp
           </button>
           <button className="btn btn-ghost" style={{ padding: "10px 18px" }} onClick={() => setForm(INIT)}><RotateCcw size={13} /> Reset</button>

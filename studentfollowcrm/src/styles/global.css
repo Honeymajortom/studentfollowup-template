@@ -292,3 +292,37 @@ td { padding: 12px 16px; }
 
 /* ── Page layout ────────────────────────────────── */
 .page { padding: 26px 28px; }
+
+/* ── Responsive ──────────────────────────────────── */
+
+/* Stats grids: 4-col desktop, 2-col on smaller screens */
+.stats-grid { display: grid; }
+
+@media (max-width: 767px) {
+  /* Column hiding */
+  .hide-mobile { display: none !important; }
+
+  /* Stats: 2-column on mobile */
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Section header: wrap action buttons */
+  .section-head-wrap { flex-wrap: wrap; gap: 10px !important; }
+  .section-head-actions { flex-wrap: wrap; gap: 8px !important; }
+
+  /* Tighter modal */
+  .modal-box { padding: 18px 14px !important; border-radius: 14px !important; }
+
+  /* Scrollable tables on mobile (if not replaced by cards) */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Tighter page title */
+  .sec-title { font-size: 16px !important; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Low-priority column hiding on tablet */
+  .hide-tablet { display: none !important; }
+
+  /* Stats: 2-column on tablet */
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
