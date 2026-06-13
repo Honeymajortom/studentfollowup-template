@@ -120,22 +120,24 @@ export default function StaffManagement() {
 
       {/* Add Staff Modal */}
       <Modal open={addModal} onClose={()=>setAddModal(false)} title="Add Staff Member" width={480}>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-          <FormField label="Full Name" required col="1/-1"><input className="inp" value={form.name} onChange={set("name")} placeholder="Staff member's full name"/></FormField>
-          <FormField label="Email" required col="1/-1"><input className="inp" type="email" value={form.email} onChange={set("email")} placeholder="staff@eduspark.in"/></FormField>
-          <FormField label="Password" required col="1/-1"><input className="inp" type="password" value={form.password} onChange={set("password")} placeholder="Min 8 characters"/></FormField>
-          <FormField label="Role" required col="1">
-            <select className="inp" value={form.role} onChange={set("role")}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>
-          </FormField>
-          <FormField label="Phone" col="2"><input className="inp" value={form.phone} onChange={set("phone")} placeholder="9XXXXXXXXX"/></FormField>
-          <FormField label="Joining Date" col="1"><input className="inp" type="date" value={form.joined_date} onChange={set("joined_date")}/></FormField>
-        </div>
-        <div style={{ display:"flex", gap:10, marginTop:18 }}>
-          <button className="btn btn-primary" onClick={handleCreate} disabled={creating}>
-            {creating ? "Adding…" : <><CheckCircle size={13}/> Add Staff</>}
-          </button>
-          <button className="btn btn-ghost" onClick={()=>setAddModal(false)}>Cancel</button>
-        </div>
+        <form onSubmit={e => { e.preventDefault(); handleCreate(); }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <FormField label="Full Name" required col="1/-1"><input className="inp" value={form.name} onChange={set("name")} placeholder="Staff member's full name" autoComplete="off"/></FormField>
+            <FormField label="Email" required col="1/-1"><input className="inp" type="email" value={form.email} onChange={set("email")} placeholder="staff@eduspark.in" autoComplete="off"/></FormField>
+            <FormField label="Password" required col="1/-1"><input className="inp" type="password" value={form.password} onChange={set("password")} placeholder="Min 8 characters" autoComplete="new-password"/></FormField>
+            <FormField label="Role" required col="1">
+              <select className="inp" value={form.role} onChange={set("role")}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select>
+            </FormField>
+            <FormField label="Phone" col="2"><input className="inp" value={form.phone} onChange={set("phone")} placeholder="9XXXXXXXXX" autoComplete="off"/></FormField>
+            <FormField label="Joining Date" col="1"><input className="inp" type="date" value={form.joined_date} onChange={set("joined_date")}/></FormField>
+          </div>
+          <div style={{ display:"flex", gap:10, marginTop:18 }}>
+            <button type="submit" className="btn btn-primary" disabled={creating}>
+              {creating ? "Adding…" : <><CheckCircle size={13}/> Add Staff</>}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={()=>setAddModal(false)}>Cancel</button>
+          </div>
+        </form>
       </Modal>
 
       {/* Assign Leads Modal */}

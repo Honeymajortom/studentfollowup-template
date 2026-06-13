@@ -1,0 +1,123 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.ya.testing</groupId>
+    <artifactId>ya-testing-project</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>4.33.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-java</artifactId>
+            <version>7.20.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-testng</artifactId>
+            <version>7.20.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>7.11.0</version>
+        </dependency>
+
+    </dependencies>
+</project>
+
+
+
+mvn clean install
+
+
+# Create folders
+New-Item -ItemType Directory -Force -Path `
+"src\test\java\pages", `
+"src\test\java\runners", `
+"src\test\java\stepdefinitions", `
+"src\test\java\hooks", `
+"src\test\java\utils", `
+"src\test\resources\features"
+
+# Create files
+New-Item -ItemType File -Force -Path `
+"src\test\java\utils\DriverFactory.java", `
+"src\test\java\hooks\Hooks.java", `
+"src\test\resources\features\login.feature", `
+"src\test\java\pages\LoginPage.java", `
+"src\test\java\stepdefinitions\LoginSteps.java", `
+"src\test\java\runners\TestRunner.java"
+
+
+
+start target\cucumber-report.html
+
+
+New-Item -ItemType Directory -Force -Path `
+"config", `
+"testdata", `
+"reports", `
+"screenshots"
+
+New-Item -ItemType File -Force -Path `
+"config\config.properties", `
+"testdata\login-data.xlsx"
+
+
+tree /F
+
+
+git remote add origin https://github.com/Honeymajortom/testing.git
+
+
+cd ""
+
+C:\Users\AMIT PC\.local\bin
+
+setx PATH "%PATH%;C:\Users\AMIT PC\.local\bin"
+
+
+https://github.com/Honeymajortom/studentfollowup.git
+
+
+
+nano .env
+
+a043ee8884de0a545afb4bb04c5fea4d0ae65d4a5e45cb1045090831e57c10256df1a652d3e1650b0ac57a8f079b67bb1c4aa4f306a0359c2d7e10a62b03b00c
+
+& "C:\Windows\System32\OpenSSH\ssh.exe" -i edufollowcrm-key.pem ubuntu@3.108.124.88
+
+
+crmuser password: YourPassword123!
+
+
+72-31-2-152:~/apps/studentfollowup/edufollowcrm-backend$ pm2 startup
+[PM2] Init System found: systemd
+[PM2] To setup the Startup Script, copy/paste the following command:
+sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu
+
+
+
+$2a$10$kbET4r71JJYN1NNuZAoS6OCJm.2fBw9A07HlkwDRmJFjDC.DCOooG
+
+
+
+
+psql -h edufollowcrm-db.c988ugwcogm9.ap-south-1.rds.amazonaws.com \
+     -U crmuser \
+     -d edufollowcrm \
+     -c "UPDATE users SET password_hash = '$2a$10$kbET4r71JJYN1NNuZAoS6OCJm.2fBw9A07HlkwDRmJFjDC.DCOooG' WHERE email = 'admin@eduspark.in';"
